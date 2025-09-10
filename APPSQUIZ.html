@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>TEBAK KATA — JP/ID & Kana↔Kanji</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0f172a; --card:#ffffff; --accent:#0ea5e9; --muted:#64748b; --ok:#16a34a; --warn:#f59e0b; --bad:#dc2626; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#0b1220}
+    .wrap{max-width:1000px;margin-inline:auto;padding:24px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 10px 30px rgba(2,6,23,.25)}
+    header.card{padding:18px 20px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    label{font-size:14px;color:var(--muted)}
+    input[type="file"]{padding:8px 10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc}
+    select, button{border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;background:#fff;font-weight:600}
+    button.primary{background:var(--accent);color:white;border:none}
+    main.card{margin-top:16px;padding:24px}
+    .filters.card{margin-top:12px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .az{display:flex;gap:6px;flex-wrap:wrap}
+    .az button{min-width:34px;height:34px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer;font-weight:700}
+    .az button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .stat{color:var(--muted);font-size:14px;margin-left:auto}
+    .progress{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-bottom:12px}
+    .progress .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#22c55e);transition:width .3s ease}
+    .timer{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .timer .bar{position:relative;flex:1;height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+    .timer .bar .fill{position:absolute;left:0;top:0;bottom:0;width:100%;background:var(--ok);transition:width .1s linear, background .1s linear}
+    .timer .ttext{min-width:56px;text-align:right;font-weight:700;color:#0b1220}
+    .jp{font-size:40px;line-height:1.25;margin:8px 0 2px}
+    ruby{ruby-position:over}
+    rt{font-size:.45em;color:#475569}
+    .romaji{font-size:14px;color:var(--muted);margin-bottom:22px}
+    .choices{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px;margin-top:8px}
+    .choice{padding:14px;border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;text-align:left;font-weight:600}
+    .choice:hover{border-color:var(--accent)}
+    .choice.correct{border-color:var(--ok);background:#f0fdf4}
+    .choice.wrong{border-color:var(--bad);background:#fef2f2}
+    .meta{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-size:14px}
+    .hidden{display:none}
+    .footer{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+
+    :root{ --jp-answer-size: clamp(28px, 2.5vw + 16px, 48px); }
+    .choice ruby, .choice rb{ font-size: var(--jp-answer-size); line-height: 1.15; display:inline; }
+    .choice rt{ font-size: .5em; }
+    .choice > span:first-child{ font-size: 14px; }
+
+    .choice{ display:grid; grid-template-columns:28px 1fr; column-gap:8px; align-items:start; }
+    .choice > span:first-child{ grid-column:1; margin-right:0; }
+    .choice ruby, .choice .romaji{ grid-column:2; }
+    .choice ruby, .choice rb{ display:inline; line-height:1.15; }
+    .choice rt{ line-height:1; text-align:center; }
+
+    .choices.idjp{ display:grid; grid-template-columns:repeat(2,minmax(220px,1fr)); gap:12px;}
+    @media (max-width:1024px){ .choices.idjp{ grid-template-columns:repeat(2,minmax(220px,1fr)); } }
+    @media (max-width:640px){ .choices.idjp{ grid-template-columns:1fr; } }
+    .choices.idjp .choice{ display:grid; grid-template-columns:40px 1fr; align-items:center; gap:10px; }
+    .choices.idjp .chip{ width:32px;height:32px;display:inline-grid;place-items:center;border-radius:999px;background:#e2e8f0;color:#0b1220;font-weight:700;font-size:13px; }
+    .choices.idjp .stack{ grid-column:2; display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .choices.idjp .furigana{ font-size:14px; color:#475569; line-height:1; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .choices.idjp .kanji{ font-size:clamp(24px,5.5vw,40px); line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .choices.idjp .romaji{ font-size:14px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* NEW: bigger kana for Kanji→Hiragana answers */
+    .choices.kanaonly .kana{
+      font-size: clamp(28px, 6.8vw, 56px);
+      line-height: 1.1;
+      letter-spacing: .02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 480px){
+      .wrap{ padding:12px; }
+      header.card{ grid-template-columns:1fr; gap:8px; padding:14px; }
+      .controls{ gap:8px; flex-wrap:wrap; }
+      .controls > *{ flex:1 1 auto; min-width:44%; }
+      main.card{ padding:16px; }
+      .filters.card{ padding:10px; gap:8px; }
+      .jp{ font-size: clamp(22px, 7.2vw, 34px); line-height:1.2; }
+      .choices, .choices.idjp{ grid-template-columns:1fr; gap:10px; }
+      .choices .choice, .choices.idjp .choice{ padding:14px; border-radius:12px; min-height:56px; }
+      .choices .chip, .choices.idjp .chip{ width:28px; height:28px; font-size:12px; }
+      .choices.idjp .furigana{ font-size:13px; }
+      .choices.idjp .kanji{ font-size:clamp(22px, 7vw, 32px); }
+      .choices.idjp .romaji{ font-size:13px; }
+    }
+
+    html.device-phone .choices, html.device-phone .choices.idjp{ grid-template-columns:1fr !important; gap:12px; }
+    html.device-tablet .choices, html.device-tablet .choices.idjp{ grid-template-columns:repeat(2,minmax(220px,1fr)) !important; gap:12px; }
+    html.device-phone .choices .jp{ font-size:clamp(18px, 6.5vw, 28px); }
+    html.device-tablet .choices .jp{ font-size:clamp(20px, 5.2vw, 32px); }
+
+    #toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      transform: translateX(-50%) translateY(8px);
+      background: #0b1220;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      box-shadow: 0 8px 22px rgba(2,6,23,.2);
+      font-size: 14px;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    #toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+<style>
+/* ===== Center pertanyaan khusus untuk mode JP→ID dan ID→JP ===== */
+#stage[data-mode="jp-id"] .jp,
+#stage[data-mode="jp-id"] .romaji,
+#stage[data-mode="id-jp"] .jp {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+<!-- PATCH START: kanji-kana center + equal sizing + unbold answers -->
+<style>
+/* ===== Penyesuaian khusus untuk mode Kanji → Hiragana (kanji-kana) ===== */
+
+/* 1) Pertanyaan di tengah + samakan ukuran font dengan jawaban */
+#stage[data-mode="kanji-kana"] .jp{
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: clamp(28px, 6.8vw, 56px);
+  line-height: 1.1;
+}
+
+/* 2) Jawaban tidak perlu bold */
+#stage[data-mode="kanji-kana"] .choice{
+  font-weight: 400; /* normal */
+}
+
+/* 3) Ukuran font jawaban = ukuran font pertanyaan */
+#stage[data-mode="kanji-kana"] .choices.kanaonly .kana{
+  font-size: clamp(28px, 6.8vw, 56px); /* match .jp di atas */
+  line-height: 1.1;
+}
+</style>
+<!-- PATCH END: kanji-kana center + equal sizing + unbold answers -->
+
+<style>
+/* OVERRIDE: Kanji → Hiragana — font jawaban = 1/2 dari soal */
+#stage[data-mode="kanji-kana"]{ --qfs: clamp(28px, 6.8vw, 56px); }
+
+/* pastikan pertanyaan pakai variabel yang sama */
+#stage[data-mode="kanji-kana"] .jp{
+  font-size: var(--qfs);
+}
+
+#stage[data-mode="kanji-kana"] .choices.kanaonly .kana{
+  font-size: calc(var(--qfs) / 2);   /* setengah dari pertanyaan */
+  line-height: 1.2;
+  white-space: normal;
+  word-break: keep-all;
+  overflow: visible;
+  text-overflow: clip;
+}
+</style>
+<style>
+/* OVERRIDE: Kanji → Hiragana — jawaban rata tengah & tetap 1/2 ukuran soal */
+#stage[data-mode="kanji-kana"] .choices .choice{
+  text-align: center;
+  font-size: calc(var(--qfs) / 2);
+  line-height: 1.2;
+  font-weight: 400; /* pastikan tetap normal */
+}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="card">
+      <div class="controls">
+        <label for="file">Excel (.xlsx):</label>
+        <input id="file" type="file" accept=".xlsx" />
+      </div>
+      <div class="controls" style="justify-content:flex-end">
+        <label for="mode">Mode:</label>
+        <select id="mode">
+          <option value="jp-id">Tebak Arti (JP → ID)</option>
+          <option value="id-jp">Tebak Jepang (ID → JP)</option>
+          <option value="kana-kanji">Hiragana/Katakana → Kanji</option>
+          <option value="kanji-kana">Kanji → Hiragana/Katakana</option>
+        </select>
+        <button id="start" class="primary">Mulai</button>
+      </div>
+    </header>
+
+    <section class="filters card">
+      <label>Filter huruf awal:</label>
+      <div class="az" id="az"></div>
+      <label for="basis">Berdasarkan:</label>
+      <select id="basis">
+        <option value="arti">Arti (ID)</option>
+        <option value="romaji">Romaji</option>
+      </select>
+      <div class="stat" id="stat">0/0 cocok</div>
+    </section>
+
+    <main id="stage" class="card">
+      <p>1) Pilih file Excel dengan kolom <strong>Kanji</strong>, <strong>Hiragana/Katakana</strong>, <strong>Romaji</strong>, <strong>Arti (ID)</strong>.<br>
+      2) Atur filter huruf awal (opsional) berdasarkan <em>Arti (ID)</em> atau <em>Romaji</em>.<br>
+      3) Pilih mode, lalu klik <em>Mulai</em>. Soal dibuat acak (A–D).</p>
+      <p style="color:#64748b">Catatan: Mode <strong>Kana→Kanji</strong> menampilkan jawaban hanya Kanji. Mode <strong>Kanji→Kana</strong> menampilkan soal hanya Kanji dan jawaban dengan huruf kana diperbesar.</p>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+// Similarity threshold for near-miss distractors (0..1)
+const SIMILARITY_THRESHOLD = 0.40;
+</script>
+  <script>
+    const $ = (s, p=document) => p.querySelector(s);
+    const $$ = (s, p=document) => Array.from(p.querySelectorAll(s));
+
+    let BANK = [];
+    let ACTIVE = [];
+    let order = [];
+    let idx = 0;
+    let score = 0;
+    let mode = "jp-id";
+    let selected = new Set(["ALL"]);
+    let basis = "arti";
+
+    const DURATION = 15;
+    let timeLeft = DURATION;
+    let timerHandle = null;
+    let answered = false;
+    const fileInput = $("#file");
+    const startBtn = $("#start");
+    const stage = $("#stage");
+    const modeSel = $("#mode");
+    const azWrap = $("#az");
+    const stat = $("#stat");
+    const basisSel = $("#basis");
+
+    const letters = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", "#"];
+    letters.forEach(L => {
+      const b = document.createElement("button");
+      b.textContent = (L === "ALL" ? "Semua" : L);
+      b.dataset.letter = L;
+      if (selected.has(L)) b.classList.add("active");
+      b.addEventListener("click", ()=>{
+        if (L === "ALL") {
+          selected.clear();
+          selected.add("ALL");
+        } else {
+          if (selected.has("ALL")) selected.delete("ALL");
+          if (selected.has(L)) selected.delete(L);
+          else selected.add(L);
+          if (selected.size === 0) selected.add("ALL");
+        }
+        updateAZ();
+        applyFilter();
+      });
+      azWrap.appendChild(b);
+    });
+    function updateAZ(){ $$("#az button").forEach(btn=>{ const L = btn.dataset.letter; btn.classList.toggle("active", selected.has(L)); }); }
+
+    basisSel.addEventListener("change", e=>{ basis = e.target.value; applyFilter(); });
+    modeSel.addEventListener("change", e=> mode = e.target.value);
+
+    fileInput.addEventListener("change", async (e)=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:""});
+
+      BANK = rows.map(r=> ({
+        kanji: (r["Kanji"]||"").toString().trim(),
+        kana: (r["Hiragana/Katakana"]||"").toString().trim(),
+        romaji: (r["Romaji"]||"").toString().trim(),
+        arti: (r["Arti (ID)"]||"").toString().trim(),
+      })).filter(r=> r.kana || r.kanji || r.romaji || r.arti);
+
+      if(BANK.length===0){
+        alert("Tidak ada data. Pastikan kolom: Kanji, Hiragana/Katakana, Romaji, Arti (ID).");
+        return;
+      }
+      applyFilter(true);
+      stage.innerHTML = `<p><strong>${BANK.length}</strong> entri dimuat. Pilih mode lalu klik <em>Mulai</em>.</p>`;
+    });
+
+    startBtn.addEventListener("click", ()=>{
+      if(ACTIVE.length===0){ alert("Tidak ada entri yang cocok dengan filter."); return; }
+
+      const needPair = (mode === "kana-kanji" || mode === "kanji-kana");
+      const pool = needPair ? ACTIVE.filter(r=> r.kana && r.kanji) : ACTIVE;
+
+      if(pool.length < 4){
+        alert("Butuh minimal 4 entri (dengan pasangan Kana & Kanji untuk mode ini). Perluas filter dulu.");
+        return;
+      }
+      ACTIVE = pool;
+      order = shuffle([...Array(ACTIVE.length).keys()]);
+      idx = 0; score = 0;
+      renderQuestion();
+    });
+
+    function applyFilter(fromLoad=false){
+      if (selected.has("ALL")) {
+        ACTIVE = [...BANK];
+      } else {
+        ACTIVE = BANK.filter(r => {
+          const key = (basis === "arti" ? r.arti : r.romaji).trim();
+          const ini = (key[0] || "").toUpperCase();
+          const nonLetter = (ini < "A" || ini > "Z");
+          if (nonLetter) return selected.has("#");
+          return selected.has(ini);
+        });
+      }
+      stat.textContent = `${ACTIVE.length}/${BANK.length} cocok`;
+      if(!fromLoad && $("#stage .meta")) {
+        stage.insertAdjacentHTML("afterbegin",
+          `<p style="color:#64748b;margin-top:0">Filter diubah. Klik <em>Mulai</em> lagi untuk memulai ulang.</p>`);
+      }
+    }
+
+    function renderQuestion(){
+      clearTimer();
+      answered = false;
+      stage.setAttribute("data-mode", mode);
+
+      const total = ACTIVE.length;
+      if(idx >= total){
+        stage.innerHTML = `
+          <h2>✔️ Selesai!</h2>
+          <p>Skor: <strong>${score}</strong> / ${total} | (<strong>${Math.round((score / total) * 100)}%</strong>)</p>
+          <div class="footer">
+            <button class="primary" id="redo">Ulangi</button>
+          </div>
+        `;
+        $("#redo").addEventListener("click", ()=>{ idx=0; score=0; order=shuffle(order); renderQuestion(); });
+        return;
+      }
+
+      const q = ACTIVE[order[idx]];
+      const correct = q;
+      const distractors = pickDistractors(q, 3);
+      const options = shuffle([correct, ...distractors]);
+
+      const jpRuby = rubyText(q.kanji, q.kana);
+      const progressHTML = progressBar(idx, total);
+      const timerHTML = timerBar(DURATION);
+
+      let body = "";
+      if (mode === "jp-id") {
+        body = `
+          ${timerHTML}
+          ${progressHTML}
+          <div class="jp">${jpRuby}</div>
+          <div class="romaji">${escapeHTML(q.romaji)}</div>
+          <div class="choices">
+            ${options.map((o,i)=>`
+              <button class="choice" data-correct="${o===correct}">
+                <span style="opacity:.65">${String.fromCharCode(65+i)}.</span>
+                ${escapeHTML(o.arti || "-")}
+              </button>
+            `).join("")}
+          </div>
+        `;
+      } else if (mode === "id-jp") {
+        body = `
+          ${timerHTML}
+          ${progressHTML}
+          <div class="jp" style="font-size:22px;margin:0 0 8px">${escapeHTML(q.arti)}</div>
+          <div class="choices idjp">
+            ${options.map((o,i)=>`
+              <button class="choice" data-correct="${o===correct}">
+                <span class="chip">${String.fromCharCode(65+i)}</span>
+                <div class="stack">
+                  <div class="furigana">${escapeHTML(o.kana || "")}</div>
+                  <div class="kanji">${escapeHTML(o.kanji || "")}</div>
+                  ${o.romaji ? `<div class="romaji">${escapeHTML(o.romaji)}</div>` : ``}
+                </div>
+              </button>
+            `).join("")}
+          </div>
+        `;
+      } else if (mode === "kana-kanji") {
+        // QUESTION shows Kana; ANSWERS show ONLY Kanji
+        body = `
+          ${timerHTML}
+          ${progressHTML}
+          <div class="jp">${escapeHTML(q.kana || "-")}</div>
+          <div class="choices idjp">
+            ${options.map((o,i)=>`
+              <button class="choice" data-correct="${o===correct}">
+                <span class="chip">${String.fromCharCode(65+i)}</span>
+                <div class="stack">
+                  <div class="kanji">${escapeHTML(o.kanji || "")}</div>
+                </div>
+              </button>
+            `).join("")}
+          </div>
+        `;
+      } else if (mode === "kanji-kana") {
+        // QUESTION shows ONLY Kanji; ANSWERS show ONLY Kana (with bigger font)
+        body = `
+          ${timerHTML}
+          ${progressHTML}
+          <div class="jp">${escapeHTML(q.kanji || "-")}</div>
+          <div class="choices kanaonly">
+            ${options.map((o,i)=>`
+              <button class="choice" data-correct="${o===correct}">
+                <span style="opacity:.65">${String.fromCharCode(65+i)}.</span>
+                <div class="kana">${escapeHTML(o.kana || "-")}</div>
+              </button>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      stage.innerHTML = `
+        <div class="meta">
+          <div>Soal <strong>${idx+1}</strong> / ${ACTIVE.length}</div>
+          <div>Skor: <strong>${score}</strong> | (<strong>${(idx>0?Math.round((score/idx)*100):0)}%</strong>)</div>
+          <div>Filter: <strong>${selected.has("ALL") ? "Semua" : [...selected].join(",")}</strong> • Basis: <strong>${basis.toUpperCase()}</strong> • Mode: <strong>${mode}</strong></div>
+        </div>
+        ${body}
+        <div class="footer">
+          <button id="skip">Lewati</button>
+          <button id="next" class="primary hidden">Soal berikutnya</button>
+        </div>
+      `;
+
+      $$("#stage .choice").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          if(answered) return;
+          answered = true;
+          {const __sk=document.getElementById("skip"); if(__sk){ __sk.remove(); }}
+          $$("#stage .choice").forEach(b=> b.disabled = true);
+          const ok = btn.dataset.correct === "true";
+          if(ok){
+            btn.classList.add("correct");
+            score++;
+            clearTimer();
+            setTimeout(()=>{ idx++; renderQuestion(); }, 400);
+          } else {
+            btn.classList.add("wrong");
+            const right = $("#stage .choice[data-correct='true']");
+            if(right) right.classList.add("correct");
+            $("#next").classList.remove("hidden");
+            clearTimer();
+          }
+        });
+      });
+      $("#skip").addEventListener("click", ()=>{ showToast("Soal diputar acak"); try{ const cur = order.splice(idx,1)[0]; order.push(cur); idx++; }catch(e){} renderQuestion(); });
+      $("#next").addEventListener("click", ()=>{ idx++; renderQuestion(); });
+
+      startTimer();
+    }
+
+    function progressBar(i, total){
+      const pct = Math.round((i/total)*100);
+      return `<div class="progress"><div class="fill" style="width:${pct}%;"></div></div>`;
+    }
+    function timerBar(seconds){
+      return `
+        <div class="timer">
+          <div class="bar"><div class="fill" id="tfill" style="width:100%"></div></div>
+          <div class="ttext" id="ttext">${seconds}s</div>
+        </div>
+      `;
+    }
+    function startTimer(){
+      timeLeft = DURATION;
+      const fill = $("#tfill");
+      const ttext = $("#ttext");
+      updateTimerUI();
+      timerHandle = setInterval(()=>{
+        timeLeft = Math.max(0, +(timeLeft - 0.1).toFixed(1));
+        updateTimerUI();
+        if(timeLeft <= 0){
+          clearTimer();
+          timeUp();
+        }
+      }, 100);
+      function updateTimerUI(){
+        const pct = (timeLeft / DURATION) * 100;
+        if(fill){ 
+          fill.style.width = pct + "%";
+          if(timeLeft > 10) fill.style.background = "var(--ok)";
+          else if(timeLeft > 5) fill.style.background = "var(--warn)";
+          else fill.style.background = "var(--bad)";
+        }
+        if(ttext) ttext.textContent = Math.ceil(timeLeft) + "s";
+      }
+    }
+    function clearTimer(){ if(timerHandle){ clearInterval(timerHandle); timerHandle = null; } }
+    function timeUp(){
+      if(answered) return;
+      answered = true;
+      $$("#stage .choice").forEach(b=> b.disabled = true);
+      const right = $("#stage .choice[data-correct='true']");
+      if(right) right.classList.add("correct");
+      const nextBtn = $("#next");
+      if(nextBtn) nextBtn.classList.remove("hidden");
+    }
+
+    function rubyText(kanji, kana){
+      kanji = (kanji||"").trim();
+      kana = (kana||"").trim();
+      if(!kanji || kanji===kana){ return `<span>${escapeHTML(kana || kanji)}</span>`; }
+      return `<ruby><rb>${escapeHTML(kanji)}</rb><rt>${escapeHTML(kana)}</rt></ruby>`;
+    }
+
+    function pickDistractors(q, n){
+  // Safe local threshold (fallback to 0.40 if global not defined)
+  const __threshold = (typeof SIMILARITY_THRESHOLD !== "undefined") ? SIMILARITY_THRESHOLD : 0.40;
+
+  // Tentukan field kunci sesuai mode & bentuk jawaban yang tampil
+  const keyField = (typeof mode !== "undefined" && mode === "jp-id") ? "arti"
+                : (typeof mode !== "undefined" && mode === "id-jp") ? "kana_kanji_romaji"
+                : (typeof mode !== "undefined" && mode === "kana-kanji") ? "kanji"
+                : /* kanji-kana / default */ "kana";
+
+  // Pool kandidat dasar (wajib punya pasangan utk mode pasangan)
+  let pool = (typeof ACTIVE !== "undefined" && Array.isArray(ACTIVE) ? ACTIVE : []).filter(x => x !== q);
+  if (typeof mode !== "undefined" && (mode === "kana-kanji" || mode === "kanji-kana")) {
+    pool = pool.filter(x => x && x.kana && x.kanji);
+  }
+
+  // Buat representasi teks yang akan dibandingkan
+  const qKey = makeAnswerKey(q, keyField);
+
+  // Skor kemiripan setiap kandidat
+  const scored = pool.map(item => {
+    const k = makeAnswerKey(item, keyField);
+    const s = similarity(qKey, k); // 0..1
+    return { item, s };
+  });
+
+  // Urutkan dari paling mirip
+  scored.sort((a,b) => b.s - a.s);
+
+  // Ambil yang paling mirip dengan menjaga keunikan per mode
+  const uniq = [];
+  for (const {item, s} of scored) {
+    // Batasi terlalu identik (skor 0.99) agar tidak duplikat persis
+    if (s < __threshold || s >= 0.99) continue;
+    if (isDuplicateOpt(uniq, item)) continue;
+    uniq.push(item);
+    if (uniq.length >= n) break;
+  }
+
+  // Fallback: jika masih kurang, isi dengan acak unik seperti sebelumnya
+  if (uniq.length < n) {
+    const remaining = pool.filter(x => !uniq.includes(x));
+    if (typeof shuffle === "function") shuffle(remaining);
+    for (const item of remaining) {
+      if (isDuplicateOpt(uniq, item)) continue;
+      uniq.push(item);
+      if (uniq.length >= n) break;
+    }
+  }
+  return uniq.slice(0, n);
+}
+
+
+
+    function shuffle(a){
+      for(let i=a.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [a[i],a[j]] = [a[j],a[i]];
+      }
+      return a;
+    }
+    function escapeHTML(s){
+      return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&quot;","'":"&#039;"}[c]));
+    }
+  
+
+
+// ===== Near-miss distractor helpers =====
+function makeAnswerKey(row, keyField){
+  if (!row) return "";
+  let raw = "";
+  if (keyField === "arti") raw = row.arti || "";
+  else if (keyField === "kanji") raw = row.kanji || "";
+  else if (keyField === "kana") raw = row.kana || "";
+  else { // "kana_kanji_romaji"
+    raw = [row.kana||"", row.kanji||"", row.romaji||""].filter(Boolean).join(" | ");
+  }
+  return normalizeText(raw);
+}
+
+function isDuplicateOpt(list, cand){
+  try {
+    if (typeof mode !== "undefined" && mode === "jp-id") {
+      return list.some(u => u.arti === cand.arti);
+    } else if (typeof mode !== "undefined" && mode === "id-jp") {
+      return list.some(u => (u.kanji === cand.kanji && u.kana === cand.kana && u.romaji === cand.romaji));
+    } else if (typeof mode !== "undefined" && mode === "kana-kanji") {
+      return list.some(u => u.kanji === cand.kanji);
+    } else { // "kanji-kana" or default
+      return list.some(u => u.kana === cand.kana);
+    }
+  } catch(e){
+    return false;
+  }
+}
+
+function normalizeText(s){
+  return (s||"")
+    .toString()
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[“”„‟"']/g,'"')
+    .replace(/[‐-‒–—―]/g,'-')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function bigrams(str){
+  const s = str;
+  const out = [];
+  for (let i=0; i<s.length-1; i++) out.push(s.slice(i, i+2));
+  return out;
+}
+
+function jaccardBigrams(a, b){
+  if (!a || !b) return 0;
+  const A = bigrams(a), B = bigrams(b);
+  if (A.length === 0 || B.length === 0) return 0;
+  const setA = new Map();
+  for (const x of A) setA.set(x, (setA.get(x)||0)+1);
+  const setB = new Map();
+  for (const x of B) setB.set(x, (setB.get(x)||0)+1);
+  let inter = 0, union = 0;
+  const keys = new Set([...setA.keys(), ...setB.keys()]);
+  for (const k of keys) {
+    const aC = setA.get(k)||0, bC = setB.get(k)||0;
+    inter += Math.min(aC, bC);
+    union += Math.max(aC, bC);
+  }
+  return union ? (inter / union) : 0;
+}
+
+function levenshteinSim(a, b){
+  if (a === b) return 1;
+  const m = a.length, n = b.length;
+  if (m === 0 || n === 0) return 0;
+  const dp = Array(n+1).fill(0);
+  for (let j=0; j<=n; j++) dp[j] = j;
+  for (let i=1; i<=m; i++){
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j=1; j<=n; j++){
+      const temp = dp[j];
+      const cost = (a[i-1] === b[j-1]) ? 0 : 1;
+      dp[j] = Math.min(
+        dp[j] + 1,
+        dp[j-1] + 1,
+        prev + cost
+      );
+      prev = temp;
+    }
+  }
+  const dist = dp[n];
+  const maxLen = Math.max(m, n);
+  return 1 - (dist / maxLen);
+}
+
+function commonPrefixLen(a, b){
+  const L = Math.min(a.length, b.length);
+  let i = 0;
+  while (i<L && a[i] === b[i]) i++;
+  return i;
+}
+
+function similarity(a, b){
+  if (!a || !b) return 0;
+  const j = jaccardBigrams(a, b);
+  const l = levenshteinSim(a, b);
+  let score = 0.6*j + 0.4*l;
+  const commonPrefix = commonPrefixLen(a, b);
+  if (commonPrefix >= 2) score += Math.min(0.05, commonPrefix * 0.01);
+  return Math.max(0, Math.min(0.999, score));
+}
+
+</script>
+
+  <script>
+  (function(){
+    function applyClass(cls){
+      var root = document.documentElement;
+      root.classList.remove('device-phone','device-tablet','device-desktop');
+      root.classList.add('device-' + cls);
+      root.setAttribute('data-device', cls);
+    }
+    function classify(){
+      var ua = navigator.userAgent || "";
+      var touch = (navigator.maxTouchPoints || 0) > 0;
+      var isIpadOS13 = (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints||0) > 1);
+      var isTabletUA = /iPad|Tablet|SM-T|SM-P|Lenovo Tab|Xoom|Nexus 7|Nexus 10|Kindle|Silk|Tab|Pad/i.test(ua);
+      var isPhoneUA  = /iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry/i.test(ua);
+      var cssW = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+
+      var device = 'desktop';
+      if (cssW <= 480) device = 'phone';
+      else if (cssW <= 1024) device = 'tablet';
+      else device = 'desktop';
+
+      if (isIpadOS13 || isTabletUA) device = (cssW <= 480 ? 'phone' : 'tablet');
+      if (isPhoneUA && cssW < 520) device = 'phone';
+      if (!touch && cssW > 1024) device = 'desktop';
+
+      return device;
+    }
+
+    function update(){ applyClass(classify()); }
+    try{ localStorage.removeItem('deviceOverride'); }catch(e){}
+    update();
+    window.addEventListener('resize', update, {passive:true});
+    window.addEventListener('orientationchange', update, {passive:true});
+  })();
+  </script>
+
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <script>
+    (function(){
+      var TOAST_TIMER = null;
+      window.showToast = function(msg){
+        try{
+          var el = document.getElementById('toast');
+          if(!el) return;
+          el.textContent = msg || '';
+          el.hidden = false;
+          el.classList.add('show');
+          if(TOAST_TIMER) clearTimeout(TOAST_TIMER);
+          TOAST_TIMER = setTimeout(function(){
+            el.classList.remove('show');
+            setTimeout(function(){ el.hidden = true; }, 250);
+          }, 1600);
+        }catch(e){}
+      };
+    })();
+  </script>
+</body>
+</html>
